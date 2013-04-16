@@ -1,68 +1,166 @@
-(function() {
-    // set the scene size
-    var WIDTH = 400,
-            HEIGHT = 300;
+$(function() {
 
-    // set some camera attributes
-    var VIEW_ANGLE = 45,
-            ASPECT = WIDTH / HEIGHT,
-            NEAR = 0.1,
-            FAR = 10000;
+    var container, stats;
+    var camera, scene, renderer, particles, geometry, materials = [], parameters, i, h, color;
+    var mouseX = 0, mouseY = 0;
 
-    // get the DOM element to attach to
-    // - assume we've got jQuery to hand
-    var $container = $('#container');
+    var windowHalfX = window.innerWidth / 2;
+    var windowHalfY = window.innerHeight / 2;
 
-    // create a WebGL renderer, camera
-    // and a scene
-    var renderer = new THREE.WebGLRenderer();
-    var camera = new THREE.PerspectiveCamera(VIEW_ANGLE,
-            ASPECT,
-            NEAR,
-            FAR);
-    var scene = new THREE.Scene();
+    init();
+    animate();
 
-    // the camera starts at 0,0,0 so pull it back
-    camera.position.z = 300;
+    function init() {
 
-    // start the renderer
-    renderer.setSize(WIDTH, HEIGHT);
+	container = document.createElement('div');
+	document.body.appendChild(container);
 
-    // attach the render-supplied DOM element
-    $container.append(renderer.domElement);
+	camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 3000);
+	camera.position.z = 1000;
 
-    // create the sphere's material
-    var sphereMaterial = new THREE.MeshLambertMaterial(
-            {
-                color: 0xCC0000
-            });
+	scene = new THREE.Scene();
+	scene.fog = new THREE.FogExp2(0x000000, 0.0007);
 
-    // set up the sphere vars
-    var radius = 50, segments = 16, rings = 16;
+	geometry = new THREE.Geometry();
 
-    // create a new mesh with sphere geometry -
-    // we will cover the sphereMaterial next!
-    var sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(radius, segments, rings),
-            sphereMaterial);
+	for (i = 0; i < 20000; i++) {
 
-    // add the sphere to the scene
-    scene.add(sphere);
+	    var vertex = new THREE.Vector3();
+	    vertex.x = Math.random() * 2000 - 1000;
+	    vertex.y = Math.random() * 2000 - 1000;
+	    vertex.z = Math.random() * 2000 - 1000;
 
-    // and the camera
-    scene.add(camera);
+	    geometry.vertices.push(vertex);
 
-    // create a point light
-    var pointLight = new THREE.PointLight(0xFFFFFF);
+	}
 
-    // set its position
-    pointLight.position.x = 10;
-    pointLight.position.y = 50;
-    pointLight.position.z = 130;
+	parameters = [
+	    [[1, 1, 0.5], 5],
+	    [[0.95, 1, 0.5], 4],
+	    [[0.90, 1, 0.5], 3],
+	    [[0.85, 1, 0.5], 2],
+	    [[0.80, 1, 0.5], 1]
+	];
 
-    // add to the scene
-    scene.add(pointLight);
+	for (i = 0; i < parameters.length; i++) {
 
-    // draw!
-    renderer.render(scene, camera);
-})();
+	    color = parameters[i][0];
+	    size = parameters[i][1];
+
+	    materials[i] = new THREE.ParticleBasicMaterial({size: size});
+
+	    particles = new THREE.ParticleSystem(geometry, materials[i]);
+
+	    particles.rotation.x = Math.random() * 6;
+	    particles.rotation.y = Math.random() * 6;
+	    particles.rotation.z = Math.random() * 6;
+
+	    scene.add(particles);
+
+	}
+
+	renderer = new THREE.WebGLRenderer();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	container.appendChild(renderer.domElement);
+
+
+	document.addEventListener('mousemove', onDocumentMouseMove, false);
+	document.addEventListener('touchstart', onDocumentTouchStart, false);
+	document.addEventListener('touchmove', onDocumentTouchMove, false);
+
+	//
+
+	window.addEventListener('resize', onWindowResize, false);
+
+    }
+
+    function onWindowResize() {
+
+	windowHalfX = window.innerWidth / 2;
+	windowHalfY = window.innerHeight / 2;
+
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+
+	renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
+    function onDocumentMouseMove(event) {
+
+	mouseX = event.clientX - windowHalfX;
+	mouseY = event.clientY - windowHalfY;
+
+    }
+
+    function onDocumentTouchStart(event) {
+
+	if (event.touches.length === 1) {
+
+	    event.preventDefault();
+
+	    mouseX = event.touches[ 0 ].pageX - windowHalfX;
+	    mouseY = event.touches[ 0 ].pageY - windowHalfY;
+
+	}
+
+    }
+
+    function onDocumentTouchMove(event) {
+
+	if (event.touches.length === 1) {
+
+	    event.preventDefault();
+
+	    mouseX = event.touches[ 0 ].pageX - windowHalfX;
+	    mouseY = event.touches[ 0 ].pageY - windowHalfY;
+
+	}
+
+    }
+
+    //
+
+    function animate() {
+
+	requestAnimationFrame(animate);
+
+	render();
+
+    }
+
+    function render() {
+
+	var time = Date.now() * 0.00005;
+
+	camera.position.x += (mouseX - camera.position.x) * 0.05;
+	camera.position.y += (-mouseY - camera.position.y) * 0.05;
+
+	camera.lookAt(scene.position);
+
+	for (i = 0; i < scene.children.length; i++) {
+
+	    var object = scene.children[ i ];
+
+	    if (object instanceof THREE.ParticleSystem) {
+
+		object.rotation.y = time * (i < 4 ? i + 1 : -(i + 1));
+
+	    }
+
+	}
+
+	for (i = 0; i < materials.length; i++) {
+
+	    color = parameters[i][0];
+
+	    h = (360 * (color[0] + time) % 360) / 360;
+	    materials[i].color.setHSL(h, color[1], color[2]);
+
+	}
+
+	renderer.render(scene, camera);
+
+    }
+
+});
